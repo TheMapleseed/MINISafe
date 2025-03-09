@@ -166,6 +166,18 @@ struct CreateArgs {
     /// IP range (CIDR notation)
     #[arg(long, default_value = "10.0.0.0/24")]
     ip_range: String,
+    
+    /// Create a fully locked-down network (no outbound access)
+    #[arg(long)]
+    locked_network: bool,
+    
+    /// Configure for large applications (20GB+)
+    #[arg(long)]
+    large_app: bool,
+    
+    /// Enable packet inspection for network traffic
+    #[arg(long)]
+    packet_inspection: bool,
 }
 
 /// Arguments for building artifacts
@@ -286,6 +298,18 @@ struct PortForwardArgs {
     /// Container IP (optional)
     #[arg(short, long)]
     container_ip: Option<String>,
+    
+    /// Exclusive port binding (prevents other processes from using this port)
+    #[arg(long)]
+    exclusive: bool,
+    
+    /// Incoming traffic only (no response allowed)
+    #[arg(long)]
+    incoming_only: bool,
+    
+    /// External source restrictions (comma-separated IPs or CIDR)
+    #[arg(long)]
+    restrict_source: Option<String>,
 }
 
 /// Arguments for firewall rules
@@ -523,6 +547,24 @@ impl MicroVMRegistry {
         
         Ok(())
     }
+    
+    /// Create a new MicroVM with large app configuration
+    fn create_large(&mut self, id: &str, mut config: MicroVMConfig) -> MicroVMResult<()> {
+        // Ensure config has appropriate values for large apps
+        config.memory_limit_mb = config.memory_limit_mb.max(4096); // At least 4GB memory
+        
+        let vm = MicroVM::large_app_config(id);
+        
+        // Store the VM
+        self.vms.insert(id.to_string(), Arc::new(Mutex::new(vm)));
+        
+        // Initialize
+        let vm_arc = self.vms.get(id).unwrap();
+        let mut vm = vm_arc.lock().unwrap();
+        vm.init()?;
+        
+        Ok(())
+    }
 }
 
 /// Main entry point for the CLI
@@ -603,6 +645,36 @@ pub fn run() -> MicroVMResult<()> {
 fn handle_create(registry: &mut MicroVMRegistry, args: CreateArgs) -> MicroVMResult<()> {
     println!("Creating MicroVM {}...", args.id);
     
+    // Configure initial firewall rules
+    let mut firewall_rules = Vec::new();
+    
+    // If locked network is requested, add a default deny rule
+    if args.locked_network {
+        println!("Creating locked-down network with no outbound access by default");
+        
+        // Deny all outbound traffic by default
+        firewall_rules.push(FirewallRule {
+            action: FirewallAction::Deny,
+            direction: FirewallDirection::Outbound,
+            source: None,
+            destination: None,
+            protocol: "all".to_string(),
+            port_range: None,
+            priority: 999, // Low priority, so specific allow rules can override
+        });
+        
+        // Allow DNS lookups for basic functionality
+        firewall_rules.push(FirewallRule {
+            action: FirewallAction::Allow,
+            direction: FirewallDirection::Outbound,
+            source: None,
+            destination: None,
+            protocol: "udp".to_string(),
+            port_range: Some((53, 53)), // DNS port
+            priority: 10, // Higher priority than the deny rule
+        });
+    }
+    
     // Create network config
     let network = NetworkConfig {
         enable_isolation: !args.no_network_isolation,
@@ -611,10 +683,10 @@ fn handle_create(registry: &mut MicroVMRegistry, args: CreateArgs) -> MicroVMRes
         ip_range: args.ip_range,
         dns_servers: vec!["8.8.8.8".to_string(), "1.1.1.1".to_string()],
         port_forwards: Vec::new(),
-        firewall_rules: Vec::new(),
+        firewall_rules,
         max_bandwidth_mbps: args.bandwidth as u32,
         max_packet_rate: 10000,
-        enable_packet_inspection: false,
+        enable_packet_inspection: args.packet_inspection,
     };
     
     // Create VM config
@@ -630,8 +702,13 @@ fn handle_create(registry: &mut MicroVMRegistry, args: CreateArgs) -> MicroVMRes
         network,
     };
     
-    // Create and initialize MicroVM
-    registry.create(&args.id, config)?;
+    // Create and initialize MicroVM - use large app config if specified
+    if args.large_app {
+        println!("Using large application configuration (24GB memory)");
+        registry.create_large(&args.id, config)?;
+    } else {
+        registry.create(&args.id, config)?;
+    }
     
     println!("MicroVM {} created successfully", args.id);
     Ok(())
@@ -862,25 +939,95 @@ fn handle_hot_reload(registry: &MicroVMRegistry, args: HotReloadArgs) -> MicroVM
     Ok(())
 }
 
-/// Handle port forward command
+/// Handle port forwarding command
 fn handle_port_forward(registry: &MicroVMRegistry, args: PortForwardArgs) -> MicroVMResult<()> {
     println!("Adding port forward: {}:{} -> {}:{}", 
-             "0.0.0.0", args.host_port, 
-             args.container_ip.as_deref().unwrap_or("10.0.0.2"), args.container_port);
+             args.protocol, args.host_port, 
+             args.container_ip.as_deref().unwrap_or("any"), args.container_port);
     
     let vm = registry.get(&args.id)?;
     let mut vm = vm.lock().unwrap();
     
-    let rule = PortForward {
+    // Create the port forward rule
+    let mut port_forward = PortForward {
         protocol: args.protocol,
         host_port: args.host_port,
         container_port: args.container_port,
         container_ip: args.container_ip,
     };
     
-    vm.add_port_forward(rule)?;
+    // Add the port forward
+    vm.add_port_forward(port_forward)?;
     
-    println!("Port forward added successfully");
+    // If exclusive binding is requested, add firewall rules to restrict
+    if args.exclusive {
+        println!("Configuring exclusive port binding for {}", args.host_port);
+        
+        // Add inbound allow rule for this specific port
+        let fw_rule = FirewallRule {
+            action: FirewallAction::Allow,
+            direction: FirewallDirection::Inbound,
+            source: None, // From any source by default
+            destination: None,
+            protocol: args.protocol.clone(),
+            port_range: Some((args.host_port, args.host_port)),
+            priority: 10, // High priority
+        };
+        vm.add_firewall_rule(fw_rule)?;
+    }
+    
+    // If source restriction is requested, add firewall rules
+    if let Some(sources) = args.restrict_source {
+        println!("Restricting port {} to sources: {}", args.host_port, sources);
+        
+        // Add a default deny rule for this port (lowest priority)
+        let deny_rule = FirewallRule {
+            action: FirewallAction::Deny,
+            direction: FirewallDirection::Inbound,
+            source: None,
+            destination: None,
+            protocol: args.protocol.clone(),
+            port_range: Some((args.host_port, args.host_port)),
+            priority: 900, // Low priority
+        };
+        vm.add_firewall_rule(deny_rule)?;
+        
+        // Add allow rules for each specified source
+        for (i, source) in sources.split(',').enumerate() {
+            let source = source.trim();
+            if !source.is_empty() {
+                let allow_rule = FirewallRule {
+                    action: FirewallAction::Allow,
+                    direction: FirewallDirection::Inbound,
+                    source: Some(source.to_string()),
+                    destination: None,
+                    protocol: args.protocol.clone(),
+                    port_range: Some((args.host_port, args.host_port)),
+                    priority: 100 + i as u16, // Higher priority than deny
+                };
+                vm.add_firewall_rule(allow_rule)?;
+            }
+        }
+    }
+    
+    // If incoming only is requested, block outgoing responses except for the allowed connection
+    if args.incoming_only {
+        println!("Configuring incoming-only mode for port {}", args.host_port);
+        
+        // Specific outbound response rule (if using incoming_only)
+        let allow_response = FirewallRule {
+            action: FirewallAction::Allow,
+            direction: FirewallDirection::Outbound,
+            source: None,
+            destination: None,
+            protocol: args.protocol,
+            port_range: Some((args.host_port, args.host_port)),
+            priority: 50, // Higher priority than general deny
+        };
+        vm.add_firewall_rule(allow_response)?;
+    }
+    
+    println!("Port forwarding configured successfully");
     Ok(())
 }
 

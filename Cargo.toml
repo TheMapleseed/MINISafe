@@ -24,11 +24,22 @@ chrono = { version = "0.4", features = ["serde"] }
 parking_lot = "0.12"
 threadpool = "1.8"
 
-# Cryptography and security
-sha2 = "0.10"
-hex = "0.4"
-seccomp = "0.1"
-rand = "0.8"
+# Enhanced security dependencies
+# Cryptography
+ring = "0.17"  # Modern cryptographic library
+base64 = "0.21"  # Base64 encoding/decoding
+zeroize = "1.6"  # Secure memory clearing
+seccomp = "0.1"  # System call filtering
+memoffset = "0.9"  # Memory offset calculations
+syscallz = "0.16"  # Syscall handling
+libc = "0.2"  # System interface
+
+# Security analysis
+cargo-audit = { version = "0.18", optional = true }  # Vulnerability scanning
+cargo-deny = { version = "0.14", optional = true }  # License and vulnerability checking
+
+# URL parsing and validation
+url = "2.4"  # URL parsing and validation
 
 # Networking
 ipnetwork = "0.20"
@@ -44,6 +55,10 @@ tempfile = "3.8"
 proptest = "1.2"
 criterion = "0.5"
 mockall = "0.11"
+rustsec = "0.28"  # Security advisory database
+arbitrary = "1.3"  # Fuzzing support
+once_cell = "1.18"  # Lazy static initialization
+test-log = "0.2"  # Test logging
 
 [profile.release]
 opt-level = 3
@@ -53,10 +68,19 @@ lto = true
 codegen-units = 1
 panic = "abort"
 
+# Add security flags for release builds
+[profile.release.build-override]
+opt-level = 3
+codegen-units = 1
+debug = false
+# Enable stack protection
+rustflags = ["-Z", "stack-protector=strong"]
+
 [profile.dev]
 opt-level = 0
 debug = true
 
+# Security features
 [features]
 default = ["wx-protection", "data-guards"]
 wx-protection = []
@@ -64,6 +88,8 @@ data-guards = []
 hot-reload = []
 network-isolation = []
 audit-logging = []
+security-audit = ["cargo-audit", "cargo-deny"]
+fips-compliant = []  # When enabled, uses only FIPS-compliant crypto
 
 [[bin]]
 name = "microvm"
