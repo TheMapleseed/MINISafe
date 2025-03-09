@@ -1,0 +1,89 @@
+name: MINISafe Security Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 0'  # Run weekly on Sundays
+
+jobs:
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install audit tool
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-audit
+          version: latest
+          use-tool-cache: true
+          
+      - name: Run security audit
+        uses: actions-rs/cargo@v1
+        with:
+          command: audit
+      
+  dependency-check:
+    name: Dependency Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install dependency check tool
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-deny
+          version: latest
+          use-tool-cache: true
+          
+      - name: Check dependencies
+        uses: actions-rs/cargo@v1
+        with:
+          command: deny
+          args: check
+  
+  sast-scan:
+    name: Static Application Security Testing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        
+      - name: Run SAST scan
+        uses: ShiftLeftSecurity/scan-action@master
+        with:
+          type: "credscan,bash,rust"
+        env:
+          WORKSPACE: ""
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Upload scan reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: sast-scan-reports
+          path: reports
+          
+  container-scan:
+    name: Container Image Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Build container image
+        run: docker build -t minisafe-microvm:${{ github.sha }} .
+        
+      - name: Scan container image
+        uses: anchore/scan-action@v3
+        with:
+          image: minisafe-microvm:${{ github.sha }}
+          fail-build: false
+          severity-cutoff: high
+          
+      - name: Upload scan report
+        uses: actions/upload-artifact@v3
+        with:
+          name: container-scan-report
+          path: anchore-reports/ 

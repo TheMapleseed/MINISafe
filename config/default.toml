@@ -1,0 +1,28 @@
+# MINISafe MicroVM Default Configuration
+
+[microvm]
+log_level = "info"
+artifacts_dir = "/var/lib/microvm/artifacts"
+enable_wx_protection = true
+enable_data_guards = true
+enable_hot_reload = true
+
+[resources]
+memory_limit_mb = 512
+cpu_limit = 1
+network_limit_mbps = 100
+
+[network]
+enable_isolation = true
+enable_nat = true
+ip_range = "10.0.0.0/24"
+dns_servers = ["8.8.8.8", "1.1.1.1"]
+max_bandwidth_mbps = 100
+max_packet_rate = 10000
+enable_packet_inspection = false
+
+[security]
+# Default security settings
+enforce_signing = true
+block_sensitive_data = true
+allow_network = true 
