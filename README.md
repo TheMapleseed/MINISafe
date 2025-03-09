@@ -1,10 +1,10 @@
-# MiniSafe MicroVM
+# MINISafe MicroVM
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://github.com/minisafe/microvm/workflows/CI/badge.svg)](https://github.com/minisafe/microvm/actions)
-[![Security Audit](https://github.com/minisafe/microvm/workflows/Security%20Audit/badge.svg)](https://github.com/minisafe/microvm/actions)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Build Status](https://github.com/TheMapleseed/MINISafe/workflows/CI/badge.svg)](https://github.com/TheMapleseed/MINISafe/actions)
+[![Security Audit](https://github.com/TheMapleseed/MINISafe/workflows/Security%20Audit/badge.svg)](https://github.com/TheMapleseed/MINISafe/actions)
 
-An enterprise-grade, security-hardened lightweight micro virtual machine system with advanced isolation and CI/CD integration.
+An enterprise-grade, security-hardened lightweight micro virtual machine system with advanced isolation and CI/CD integration. Developed by The Mapleseed Inc. to provide organizations with complete control over their virtualization environment.
 
 ## Features
 
@@ -38,6 +38,13 @@ An enterprise-grade, security-hardened lightweight micro virtual machine system 
 - **Fully Concurrent**: Parallel build, execution, and monitoring.
 - **Process Metrics**: Real-time monitoring of resource utilization.
 
+### Enterprise-Grade Credential Management
+
+- **Secure Credential Vault**: Encrypted storage for API keys and sensitive data
+- **Persistent Across Reboots**: Credentials remain stable even after system restarts
+- **Fine-grained Access Control**: Control which applications can access which credentials
+- **Audit Logging**: Track all credential access for security compliance
+
 ## Installation
 
 ### Prerequisites
@@ -50,8 +57,8 @@ An enterprise-grade, security-hardened lightweight micro virtual machine system 
 
 ```bash
 # Clone the repository
-git clone https://github.com/minisafe/microvm.git
-cd microvm
+git clone https://github.com/TheMapleseed/MINISafe.git
+cd MINISafe
 
 # Build the project
 cargo build --release
@@ -63,7 +70,7 @@ sudo cp target/release/microvm /usr/local/bin/
 ### Using Cargo
 
 ```bash
-cargo install minisafe-microvm
+cargo install MINIsafe-microvm
 ```
 
 ## Usage
@@ -124,6 +131,18 @@ microvm security permissions --id my-vm --artifact-id artifact_1234567890 \
 microvm security audit --id my-vm --full
 ```
 
+### Credential Management
+
+```bash
+# Store API key that persists across reboots
+microvm security credential --id my-vm --artifact-id artifact_123 \
+  --key "MY_API_KEY" --value "abc123456" \
+  --description "Production API key for service XYZ" --auto-load true
+
+# List stored credentials
+microvm security credential --id my-vm --artifact-id artifact_123 --list
+```
+
 ### Hot-Reloading
 
 ```bash
@@ -140,6 +159,7 @@ MicroVM is built using a modular architecture with several key components:
 3. **Network Controller**: Manages the network stack with namespace isolation.
 4. **Security Manager**: Enforces security policies and performs audits.
 5. **CLI Interface**: Provides a user-friendly command-line interface.
+6. **Credential Vault**: Securely stores and manages persistent credentials.
 
 ## Security Considerations
 
@@ -171,7 +191,7 @@ jobs:
       
       - name: Install MicroVM
         run: |
-          curl -L https://github.com/minisafe/microvm/releases/latest/download/microvm-linux-x86_64 -o microvm
+          curl -L https://github.com/TheMapleseed/MINISafe/releases/latest/download/microvm-linux-x86_64 -o microvm
           chmod +x microvm
           sudo mv microvm /usr/local/bin/
       
@@ -190,21 +210,13 @@ jobs:
           microvm execute --id ci-deploy --artifact-id $(microvm list --id ci-deploy --artifacts | tail -1 | awk '{print $1}')
 ```
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-Please ensure that your code adheres to our coding standards and passes all tests.
-
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details. The GPL-3.0 license ensures that all modifications to this software must also be made available under the same license, preserving freedom and control for both users and the original developers.
+
+## Copyright
+
+Copyright (c) 2024-2025 The Mapleseed Inc. All rights reserved.
 
 ## Acknowledgements
 

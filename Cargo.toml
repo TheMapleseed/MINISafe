@@ -1,11 +1,11 @@
 [package]
-name = "minisafe-microvm"
-version = "1.0.0"
-edition = "2021"
-authors = ["MiniSafe Corporation"]
-description = "Enterprise-grade security-hardened MicroVM with network isolation and CI/CD integration"
-license = "MIT"
-repository = "https://github.com/minisafe/microvm"
+name = "MINIsafe-microvm"
+version = "0.0.1"
+edition = "2025"
+authors = ["David Harmon"]
+description = "Enterprise-grade MicroVM with network isolation and CI/CD integration"
+license = "GPL-3.0"
+repository = "https://github.com/TheMapleseed/MINISafe"
 readme = "README.md"
 keywords = ["microvm", "virtualization", "security", "isolation", "container"]
 categories = ["virtualization", "security", "network-programming"]
