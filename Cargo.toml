@@ -1,0 +1,70 @@
+[package]
+name = "minisafe-microvm"
+version = "1.0.0"
+edition = "2021"
+authors = ["MiniSafe Corporation"]
+description = "Enterprise-grade security-hardened MicroVM with network isolation and CI/CD integration"
+license = "MIT"
+repository = "https://github.com/minisafe/microvm"
+readme = "README.md"
+keywords = ["microvm", "virtualization", "security", "isolation", "container"]
+categories = ["virtualization", "security", "network-programming"]
+
+[dependencies]
+# Core functionality
+clap = { version = "4.4", features = ["derive"] }
+log = "0.4"
+env_logger = "0.10"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Concurrency and synchronization
+parking_lot = "0.12"
+threadpool = "1.8"
+
+# Cryptography and security
+sha2 = "0.10"
+hex = "0.4"
+seccomp = "0.1"
+rand = "0.8"
+
+# Networking
+ipnetwork = "0.20"
+socket2 = "0.5"
+
+# CLI formatting
+prettytable-rs = "0.10"
+colored = "2.0"
+indicatif = "0.17"
+
+[dev-dependencies]
+tempfile = "3.8"
+proptest = "1.2"
+criterion = "0.5"
+mockall = "0.11"
+
+[profile.release]
+opt-level = 3
+debug = false
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[features]
+default = ["wx-protection", "data-guards"]
+wx-protection = []
+data-guards = []
+hot-reload = []
+network-isolation = []
+audit-logging = []
+
+[[bin]]
+name = "microvm"
+path = "src/main.rs" 
